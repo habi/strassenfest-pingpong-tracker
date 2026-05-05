@@ -373,7 +373,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" data-tab="ranking" role="tab" aria-selected="true">Rangliste</button>
     <button class="tab-btn" data-tab="match"   role="tab" aria-selected="false">Spiel eintragen</button>
-    <button class="tab-btn" data-tab="players" role="tab" aria-selected="false">Spieler</button>
+    <button class="tab-btn" data-tab="players" role="tab" aria-selected="false">Mitspielende</button>
   </nav>
 </header>
 
@@ -414,14 +414,14 @@
 
       <div class="vs-row">
         <div class="form-group">
-          <label for="match-p1">Spieler 1</label>
+          <label for="match-p1">Person 1</label>
           <select id="match-p1">
             <option value="">– wählen –</option>
           </select>
         </div>
         <div class="vs-badge">vs.</div>
         <div class="form-group">
-          <label for="match-p2">Spieler 2</label>
+          <label for="match-p2">Person 2</label>
           <select id="match-p2">
             <option value="">– wählen –</option>
           </select>
@@ -447,17 +447,17 @@
   ═══════════════════════════════════════════════════════════ -->
   <section id="tab-players" class="tab-panel" role="tabpanel">
     <div class="card">
-      <h2>➕ Neuen Spieler hinzufügen</h2>
+      <h2>➕ Spielerin oder Spieler hinzufügen</h2>
       <div class="form-group">
         <label for="player-name">Name</label>
         <input type="text" id="player-name" placeholder="z.B. Max Mustermann"
                autocomplete="off" autocapitalize="words" />
       </div>
-      <button class="btn btn-primary" id="add-player-btn">Spieler hinzufügen</button>
+      <button class="btn btn-primary" id="add-player-btn">hinzufügen</button>
     </div>
 
     <div class="card">
-      <h2>👥 Alle Spieler</h2>
+      <h2>👥 Mitspielende</h2>
       <div id="players-list-content">
         <div class="empty"><div class="empty-icon">⏳</div>Lade Daten…</div>
       </div>
@@ -608,8 +608,8 @@ function addPlayer() {
 
 function deletePlayer(id) {
   if (!db) return;
-  const name = playersData[id]?.name || 'Spieler';
-  if (!confirm(`„${name}" wirklich löschen?\nAlle Spiele dieses Spielers bleiben erhalten.`)) return;
+  const name = playersData[id]?.name || 'Person';
+  if (!confirm(`„${name}" wirklich löschen?\nAlle Spiele dieser Person bleiben erhalten.`)) return;
   db.ref(`players/${id}`).remove()
     .then(() => showToast(`🗑️ ${name} entfernt.`))
     .catch(err => showToast('Fehler: ' + err.message));
@@ -621,7 +621,7 @@ function renderPlayers() {
     .sort((a, b) => a[1].name.localeCompare(b[1].name, 'de'));
 
   if (!players.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>Noch keine Spieler eingetragen.</div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>Noch keine Mitspielende eingetragen.</div>';
     return;
   }
 
@@ -766,7 +766,7 @@ function renderRanking() {
 
   if (!ranking.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">🏓</div>' +
-      'Noch keine Spieler. Gehe zu „Spieler" und trage Mitspieler ein.</div>';
+      'Noch niemand macht mit. Gehe zu „Personen" und trage Mitspielende ein.</div>';
     return;
   }
 
