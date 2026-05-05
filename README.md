@@ -51,10 +51,49 @@ const firebaseConfig = {
 > **Note:** `firebase-config.js` is listed in `.gitignore` so your credentials
 > are never accidentally committed.
 
-### 3. Open `index.html`
+### 3. Deploy via GitHub Pages (recommended)
 
-Because Firebase Realtime Database is accessed via HTTPS you need to serve the
-file from a web server (or deploy it). The easiest options:
+The repository includes a GitHub Actions workflow
+(`.github/workflows/deploy.yml`) that automatically builds and publishes the
+app to **GitHub Pages** on every push to `main`. Firebase credentials are
+stored as **repository secrets** — they never appear in source code.
+
+#### One-time setup
+
+1. **Enable GitHub Pages** in your repository:
+   *Settings → Pages → Source → GitHub Actions*
+
+2. **Add the following repository secrets**
+   (*Settings → Secrets and variables → Actions → New repository secret*):
+
+   | Secret name | Where to find it |
+   |---|---|
+   | `FIREBASE_API_KEY` | Firebase Console → Project settings → Your apps → SDK setup |
+   | `FIREBASE_AUTH_DOMAIN` | same (e.g. `my-project.firebaseapp.com`) |
+   | `FIREBASE_DATABASE_URL` | same (e.g. `https://my-project-default-rtdb.firebaseio.com`) |
+   | `FIREBASE_PROJECT_ID` | same |
+   | `FIREBASE_STORAGE_BUCKET` | same (e.g. `my-project.appspot.com`) |
+   | `FIREBASE_MESSAGING_SENDER_ID` | same |
+   | `FIREBASE_APP_ID` | same |
+
+3. Push (or re-push) to `main`. The workflow will generate `firebase-config.js`
+   at deploy time and publish the site. The generated file is never committed to
+   the repository.
+
+After the first successful run, GitHub will show the public URL under
+*Settings → Pages* (usually `https://<your-username>.github.io/<repo-name>/`).
+
+#### Local development
+
+For local testing you still need a `firebase-config.js` file:
+
+```bash
+cp firebase-config.example.js firebase-config.js
+# fill in your credentials, then serve locally:
+python3 -m http.server 8080
+```
+
+Other local options:
 
 | Option | Command / Steps |
 |--------|-----------------|
