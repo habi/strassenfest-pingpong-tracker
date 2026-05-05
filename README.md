@@ -51,7 +51,43 @@ const firebaseConfig = {
 > **Note:** `firebase-config.js` is listed in `.gitignore` so your credentials
 > are never accidentally committed.
 
-### 3. Open `index.html`
+### 3. Deploy to GitHub Pages (recommended)
+
+This repository includes a GitHub Actions workflow that builds and deploys the
+site automatically every time you push to `main`.
+
+#### One-time setup
+
+1. **Enable GitHub Pages**
+   Repository → Settings → Pages → Source: **GitHub Actions**
+
+2. **Set the Firebase config secret**
+   Repository → Settings → Secrets and variables → Actions → New repository secret:
+   - Name: `FIREBASE_CONFIG_JS`
+   - Value: the complete content of your `firebase-config.js` file, e.g.:
+     ```js
+     const firebaseConfig = {
+       apiKey:            "AIza...",
+       authDomain:        "my-project.firebaseapp.com",
+       databaseURL:       "https://my-project-default-rtdb.firebaseio.com",
+       projectId:         "my-project",
+       storageBucket:     "my-project.appspot.com",
+       messagingSenderId: "123456789",
+       appId:             "1:123456789:web:abc123"
+     };
+     ```
+
+3. **Push to `main`** (or trigger the workflow manually via Actions → Deploy to
+   GitHub Pages → Run workflow).
+
+Your site will be live at:
+`https://<your-github-username>.github.io/strassenfest-pingpong-tracker/`
+
+> **Note:** `firebase-config.js` is injected from the secret at deploy time
+> and is never stored in the repository. If the secret is missing the site
+> still loads but shows a configuration warning.
+
+### 3b. Other ways to open `index.html`
 
 Because Firebase Realtime Database is accessed via HTTPS you need to serve the
 file from a web server (or deploy it). The easiest options:

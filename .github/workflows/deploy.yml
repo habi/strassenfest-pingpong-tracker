@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; cancel in-progress runs on new push
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write Firebase config from secret
+        # Create firebase-config.js from the repository secret.
+        # Store the full JS file content (see README) as the secret
+        # FIREBASE_CONFIG_JS in Settings → Secrets and variables → Actions.
+        env:
+          FIREBASE_CONFIG_JS: ${{ secrets.FIREBASE_CONFIG_JS }}
+        run: |
+          if [ -z "$FIREBASE_CONFIG_JS" ]; then
+            echo "⚠️  Secret FIREBASE_CONFIG_JS is not set."
+            echo "   The deployed site will show a configuration warning."
+            echo "   See README for instructions."
+            # Write an empty placeholder so the page still loads
+            echo "// Firebase config not configured – set the FIREBASE_CONFIG_JS secret." > firebase-config.js
+          else
+            printf '%s' "$FIREBASE_CONFIG_JS" > firebase-config.js
+            echo "✅ firebase-config.js written from secret."
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
