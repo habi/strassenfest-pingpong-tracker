@@ -115,6 +115,7 @@
     }
 
     input[type="text"],
+    input[type="number"],
     select {
       width: 100%;
       padding: .7rem .9rem;
@@ -129,6 +130,7 @@
     }
 
     input[type="text"]:focus,
+    input[type="number"]:focus,
     select:focus {
       outline: none;
       border-color: var(--green2);
@@ -428,6 +430,19 @@
         </div>
       </div>
 
+      <div style="margin-top:1rem;">
+        <label>Spielstand <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+        <div class="vs-row" style="margin-top:.4rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <input type="number" id="score-p1" min="0" placeholder="0" />
+          </div>
+          <div class="vs-badge">:</div>
+          <div class="form-group" style="margin-bottom:0;">
+            <input type="number" id="score-p2" min="0" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
       <div class="winner-group">
         <label>Wer hat gewonnen?</label>
         <div class="winner-options" id="winner-options">
@@ -560,6 +575,10 @@ function bindUI() {
   document.getElementById('match-p1').addEventListener('change', updateWinnerButtons);
   document.getElementById('match-p2').addEventListener('change', updateWinnerButtons);
 
+  // Score inputs → auto-select winner
+  document.getElementById('score-p1').addEventListener('input', updateScoresAutoWinner);
+  document.getElementById('score-p2').addEventListener('input', updateScoresAutoWinner);
+
   // Winner selection
   document.getElementById('winner-btn-1').addEventListener('click', () => selectWinner('1'));
   document.getElementById('winner-btn-2').addEventListener('click', () => selectWinner('2'));
@@ -681,7 +700,25 @@ function updateWinnerButtons() {
   document.getElementById('winner-btn-1').classList.remove('selected');
   document.getElementById('winner-btn-2').classList.remove('selected');
 
-  updateSubmitState();
+  updateScoresAutoWinner();
+}
+
+function updateScoresAutoWinner() {
+  const s1 = parseInt(document.getElementById('score-p1').value, 10);
+  const s2 = parseInt(document.getElementById('score-p2').value, 10);
+  if (!isNaN(s1) && !isNaN(s2)) {
+    if (s1 !== s2) {
+      selectWinner(s1 > s2 ? '1' : '2');
+    } else {
+      // Tied score: clear any auto-selected winner
+      selectedWinner = null;
+      document.getElementById('winner-btn-1').classList.remove('selected');
+      document.getElementById('winner-btn-2').classList.remove('selected');
+      updateSubmitState();
+    }
+  } else {
+    updateSubmitState();
+  }
 }
 
 function selectWinner(which) {
@@ -711,15 +748,28 @@ function submitMatch() {
 
   if (!p1 || !p2 || p1 === p2 || !winner) return;
 
+  const s1 = parseInt(document.getElementById('score-p1').value, 10);
+  const s2 = parseInt(document.getElementById('score-p2').value, 10);
+  const hasScores = !isNaN(s1) && !isNaN(s2) && s1 >= 0 && s2 >= 0;
+
   const btn = document.getElementById('submit-match');
   btn.disabled = true;
 
-  db.ref('matches').push({ player1: p1, player2: p2, winner, addedAt: Date.now() })
+  const matchData = { player1: p1, player2: p2, winner, addedAt: Date.now() };
+  if (hasScores) {
+    matchData.score1 = s1;
+    matchData.score2 = s2;
+  }
+
+  db.ref('matches').push(matchData)
     .then(() => {
-      showToast(`🏆 ${winner} gewinnt gegen ${loser}!`);
+      const scoreStr = hasScores ? ` (${s1}:${s2})` : '';
+      showToast(`🏆 ${winner} gewinnt gegen ${loser}!${scoreStr}`);
       // Reset form
       document.getElementById('match-p1').value = '';
       document.getElementById('match-p2').value = '';
+      document.getElementById('score-p1').value = '';
+      document.getElementById('score-p2').value = '';
       selectedWinner = null;
       updateWinnerButtons();
     })
@@ -738,20 +788,28 @@ function computeRanking() {
 
   // Initialize from player list
   Object.values(playersData).forEach(p => {
-    stats[p.name] = { name: p.name, wins: 0, losses: 0 };
+    stats[p.name] = { name: p.name, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 };
     h2h[p.name]   = {};
   });
 
   // Count match results and head-to-head records
   Object.values(matchesData).forEach(m => {
     const loser = m.player1 === m.winner ? m.player2 : m.player1;
-    if (!stats[m.winner]) stats[m.winner] = { name: m.winner, wins: 0, losses: 0 };
-    if (!stats[loser])    stats[loser]    = { name: loser,    wins: 0, losses: 0 };
+    if (!stats[m.winner]) stats[m.winner] = { name: m.winner, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 };
+    if (!stats[loser])    stats[loser]    = { name: loser,    wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 };
     if (!h2h[m.winner])   h2h[m.winner]   = {};
     if (!h2h[loser])      h2h[loser]      = {};
     stats[m.winner].wins++;
     stats[loser].losses++;
     h2h[m.winner][loser] = (h2h[m.winner][loser] || 0) + 1;
+    if (typeof m.score1 === 'number' && typeof m.score2 === 'number') {
+      const winnerScore = m.player1 === m.winner ? m.score1 : m.score2;
+      const loserScore  = m.player1 === m.winner ? m.score2 : m.score1;
+      stats[m.winner].pointsFor     += winnerScore;
+      stats[m.winner].pointsAgainst += loserScore;
+      stats[loser].pointsFor        += loserScore;
+      stats[loser].pointsAgainst    += winnerScore;
+    }
   });
 
   return Object.values(stats).sort((a, b) => {
@@ -793,7 +851,8 @@ function renderRanking() {
   const rows = ranking.map((p, i) => {
     const games = p.wins + p.losses;
     const pct   = games > 0 ? Math.round((p.wins / games) * 100) : 0;
-    const diff  = p.wins - p.losses;
+    const hasPoints = p.pointsFor + p.pointsAgainst > 0;
+    const diff    = hasPoints ? (p.pointsFor - p.pointsAgainst) : (p.wins - p.losses);
     const diffStr = games > 0 ? (diff > 0 ? '+' + diff : String(diff)) : '–';
     const rank  = i + 1;
     return `<tr class="rank-${rank <= 3 ? rank : 'other'}">
@@ -833,13 +892,15 @@ function renderRecentMatches() {
   }
 
   el.innerHTML = matches.map(m => {
-    const loser = m.player1 === m.winner ? m.player2 : m.player1;
     const time  = m.addedAt ? new Date(m.addedAt).toLocaleString('de-CH', {
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
     }) : '';
+    const scoreStr = (typeof m.score1 === 'number' && typeof m.score2 === 'number')
+      ? ` (${m.score1}:${m.score2})`
+      : '';
     return `<div class="match-item">
       <div class="match-players">${esc(m.player1)} vs. ${esc(m.player2)}</div>
-      <div class="match-winner">🏆 ${esc(m.winner)} gewinnt</div>
+      <div class="match-winner">🏆 ${esc(m.winner)} gewinnt${esc(scoreStr)}</div>
       ${time ? `<div class="match-time">⏱ ${time}</div>` : ''}
     </div>`;
   }).join('');
