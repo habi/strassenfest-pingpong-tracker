@@ -734,28 +734,48 @@ function submitMatch() {
 ──────────────────────────────────────────────────────────────── */
 function computeRanking() {
   const stats = {};
+  const h2h   = {}; // h2h[winner][loser] = number of wins of winner against loser
 
   // Initialize from player list
   Object.values(playersData).forEach(p => {
     stats[p.name] = { name: p.name, wins: 0, losses: 0 };
+    h2h[p.name]   = {};
   });
 
-  // Count match results
+  // Count match results and head-to-head records
   Object.values(matchesData).forEach(m => {
     const loser = m.player1 === m.winner ? m.player2 : m.player1;
     if (!stats[m.winner]) stats[m.winner] = { name: m.winner, wins: 0, losses: 0 };
     if (!stats[loser])    stats[loser]    = { name: loser,    wins: 0, losses: 0 };
+    if (!h2h[m.winner])   h2h[m.winner]   = {};
+    if (!h2h[loser])      h2h[loser]      = {};
     stats[m.winner].wins++;
     stats[loser].losses++;
+    h2h[m.winner][loser] = (h2h[m.winner][loser] || 0) + 1;
   });
 
   return Object.values(stats).sort((a, b) => {
+    // 1. Points difference (wins − losses) — rewards volume, prevents 1/1 outranking 9/10
+    const diffA = a.wins - a.losses;
+    const diffB = b.wins - b.losses;
+    if (diffB !== diffA) return diffB - diffA;
+
+    // 2. Head-to-head record between these two players specifically
+    const h2hAB = (h2h[a.name] && h2h[a.name][b.name]) || 0;
+    const h2hBA = (h2h[b.name] && h2h[b.name][a.name]) || 0;
+    if (h2hAB !== h2hBA) return h2hBA - h2hAB; // negative when h2hAB > h2hBA → a (more wins) sorts first
+
+    // 3. Win rate
     const gA = a.wins + a.losses;
     const gB = b.wins + b.losses;
     const rA = gA > 0 ? a.wins / gA : 0;
     const rB = gB > 0 ? b.wins / gB : 0;
-    if (rB !== rA) return rB - rA;  // higher win-% first
-    if (b.wins !== a.wins) return b.wins - a.wins; // more wins first
+    if (rB !== rA) return rB - rA;
+
+    // 4. More absolute wins
+    if (b.wins !== a.wins) return b.wins - a.wins;
+
+    // 5. Alphabetical
     return a.name.localeCompare(b.name, 'de');
   });
 }
@@ -773,6 +793,8 @@ function renderRanking() {
   const rows = ranking.map((p, i) => {
     const games = p.wins + p.losses;
     const pct   = games > 0 ? Math.round((p.wins / games) * 100) : 0;
+    const diff  = p.wins - p.losses;
+    const diffStr = games > 0 ? (diff > 0 ? '+' + diff : String(diff)) : '–';
     const rank  = i + 1;
     return `<tr class="rank-${rank <= 3 ? rank : 'other'}">
       <td class="rank-num">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank}</td>
@@ -780,6 +802,7 @@ function renderRanking() {
       <td>${games}</td>
       <td>${p.wins}</td>
       <td>${p.losses}</td>
+      <td style="font-weight:700;color:${diff >= 0 ? 'var(--green)' : 'var(--orange)'};">${diffStr}</td>
       <td class="win-pct">${games > 0 ? pct + '%' : '–'}</td>
     </tr>`;
   }).join('');
@@ -787,13 +810,13 @@ function renderRanking() {
   el.innerHTML = `<table class="ranking-table">
     <thead>
       <tr>
-        <th>#</th><th>Name</th><th>Sp.</th><th>S</th><th>N</th><th>%</th>
+        <th>#</th><th>Name</th><th>Sp.</th><th>S</th><th>N</th><th>+/−</th><th>%</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
   <p style="font-size:.75rem;color:var(--muted);margin-top:.75rem;text-align:right;">
-    Sp. = Spiele &nbsp;|&nbsp; S = Siege &nbsp;|&nbsp; N = Niederlagen
+    Sp. = Spiele &nbsp;|&nbsp; S = Siege &nbsp;|&nbsp; N = Niederlagen &nbsp;|&nbsp; +/− = Punktedifferenz
   </p>`;
 }
 
